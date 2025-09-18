@@ -1,7 +1,7 @@
 // Rise Essay Box with SCORM 2004 Reporting for Articulate Reach
 // Revised: no text limits, no course completion, dynamic shortcode labels
 
-console.log("🎯 simple-test.js loaded (revised)");
+console.log("🎯🎯🎯🎯 simple-test.js loaded (revised)");
 
 (function () {
   console.log("Rise Essay Box Script - Starting...");
@@ -192,3 +192,4 @@ console.log("🎯 simple-test.js loaded (revised)");
     init();
   }
 })();
+
