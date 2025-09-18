@@ -1,0 +1,14 @@
+name: Purge jsDelivr Cache
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge jsDelivr cache
+        run: |
+          curl -i "https://purge.jsdelivr.net/gh/MalcoZ/reach-essay@main/simple-test.js"
