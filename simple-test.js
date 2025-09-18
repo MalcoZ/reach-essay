@@ -242,6 +242,149 @@ console.log("🎯 simple-test.js loaded from jsDelivr");
             }
         }
     }, 1000);
+
+    // --- Minimal shortcode scanner + manual trigger ---
+(function () {
+  // Match a line that is only the shortcode (ignoring surrounding whitespace)
+  const SHORTCODE_REGEX = /^\[essay(?:\s+([^\]]+))?\]$/i;
+
+  // Accept id="...", id='...', id=“...”, id=’...’
+  function parseAttributesSmart(str) {
+    const attrs = {};
+    if (!str) return attrs;
+    const re = /(\w+)="“”'’["“”'’]/g;
+    let m;
+    while ((m = re.exec(str)) !== null) attrs[m[1]] = m[2];
+    return attrs;
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
+  function createEssayHTML(id, label) {
+    return `
+      <div id="essay-${id}" class="reach-essay" style="margin:1rem 0; padding:1rem; border:1px solid #ddd; border-radius:8px;">
+        <label for="essay-input-${id}" style="display:block; font-weight:600; margin-bottom:.5rem;">
+          ${escapeHtml(label || 'Essay Question')}
+        </label>
+        <textarea id="essay-input-${id}" rows="5"
+          style="width:100%; padding:.75rem; font:inherit; border:1px solid #ccc; border-radius:6px;"
+          placeholder="Type your response here..."></textarea>
+        <div style="display:flex; gap:1rem; align-items:center; margin-top:.5rem;">
+          <span id="essay-charcount-${id}">0 characters</span>
+          <span id="essay-savestatus-${id}" aria-live="polite"></span>
+        </div>
+        <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+          <button id="essay-save-${id}" type="button"
+            style="padding:.5rem .75rem; border:1px solid #0078D4; background:#0078D4; color:#fff; border-radius:4px; cursor:pointer;">
+            💾 Save Response
+          </button>
+          <button id="essay-clear-${id}" type="button"
+            style="padding:.5rem .75rem; border:1px solid #999; background:#fff; color:#333; border-radius:4px; cursor:pointer;">
+            Clear
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function attachHandlers(id) {
+    const ta = document.getElementById(`essay-input-${id}`);
+    const count = document.getElementById(`essay-charcount-${id}`);
+    const saveBtn = document.getElementById(`essay-save-${id}`);
+    const clearBtn = document.getElementById(`essay-clear-${id}`);
+    const status = document.getElementById(`essay-savestatus-${id}`);
+
+    if (ta && count) {
+      const update = () => count.textContent = `${ta.value.length} characters`;
+      ta.addEventListener('input', update);
+      update();
+    }
+    if (saveBtn && ta && status) {
+      saveBtn.addEventListener('click', () => {
+        // (local preview only; we’ll wire SCORM later)
+        window.ReachQuizData = window.ReachQuizData || {};
+        window.ReachQuizData[id] = ta.value.trim();
+        status.textContent = '💾 Saved (local)';
+      });
+    }
+    if (clearBtn && ta && status) {
+      clearBtn.addEventListener('click', () => {
+        ta.value = '';
+        ta.dispatchEvent(new Event('input'));
+        status.textContent = 'Cleared';
+      });
+    }
+  }
+
+  function scanForShortcodes(root = document) {
+    const SELECTORS = 'p, li, div, blockquote, span, h1, h2, h3, h4, figcaption, section, article';
+    const nodes = root.querySelectorAll(SELECTORS);
+    let replaced = 0;
+
+    nodes.forEach(node => {
+      if (!node || node.nodeType !== 1) return;
+      if (node.dataset.essayProcessed === '1') return;
+
+      const text = (node.textContent || '').replace(/\u00A0/g, ' ').trim();
+      if (!/\[essay/i.test(text)) return;
+      const m = text.match(SHORTCODE_REGEX);
+      if (!m) return;
+
+      const attrs = parseAttributesSmart(m[1] || '');
+      let id = attrs.id || ('essay_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
+      const label = attrs.label || 'Essay Question';
+
+      // Avoid duplicate IDs if the same ID appears twice on a page
+      if (document.getElementById(`essay-input-${id}`)) {
+        id = id + '_' + Math.random().toString(36).slice(2,4);
+      }
+
+      const container = document.createElement('div');
+      container.innerHTML = createEssayHTML(id, label);
+      node.replaceWith(container);
+
+      const host = container.firstElementChild || container;
+      host.dataset.essayProcessed = '1';
+      replaced++;
+
+      setTimeout(() => attachHandlers(id), 0);
+    });
+
+    console.log(`[essay] scan complete — replaced ${replaced}`);
+    return replaced;
+  }
+
+  // Expose a manual trigger and auto-scan for dynamically injected content
+  window.forceEssayScan = () => scanForShortcodes(document);
+
+  // Initial pass + watch for new content
+  const init = () => {
+    scanForShortcodes(document);
+    const mo = new MutationObserver(muts => {
+      for (const m of muts) {
+        if (m.addedNodes && m.addedNodes.length) {
+          clearTimeout(init._t);
+          init._t = setTimeout(() => scanForShortcodes(document), 80);
+          break;
+        }
+      }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    console.log('[essay] scanner initialized');
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+
     
 
 })();
+
