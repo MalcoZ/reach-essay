@@ -1,7 +1,7 @@
 // Rise Essay Box with SCORM 2004 Reporting for Articulate Reach
 // Streamlined Production Version
 
-console.log('🎯 remote simple-test.js v1');
+console.log("🎯 simple-test.js loaded from jsDelivr");
 
 
 (function() {
@@ -243,4 +243,5 @@ console.log('🎯 remote simple-test.js v1');
         }
     }, 1000);
     
+
 })();
