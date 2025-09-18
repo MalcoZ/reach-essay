@@ -1,7 +1,7 @@
 // Rise Essay Box with SCORM 2004 Reporting for Articulate Reach
 // Revised: no text limits, no course completion, dynamic shortcode labels
 
-console.log("🎯🎯🎯 simple-test.js loaded (revised)");
+console.log("🎯 simple-test.js loaded (revised)");
 
 (function () {
   console.log("Rise Essay Box Script - Starting...");
@@ -122,5 +122,73 @@ console.log("🎯🎯🎯 simple-test.js loaded (revised)");
       clearBtn.addEventListener("click", () => {
         ta.value = "";
         ta.dispatchEvent(new Event("input"));
-        status.textCon
+        status.textContent = "Cleared";
+      });
+    }
+  }
 
+  function scanForShortcodes(root = document) {
+    const SELECTORS =
+      "p, li, div, blockquote, span, h1, h2, h3, h4, figcaption, section, article";
+    const nodes = root.querySelectorAll(SELECTORS);
+    let replaced = 0;
+
+    nodes.forEach((node) => {
+      if (!node || node.nodeType !== 1) return;
+      if (node.dataset.essayProcessed === "1") return;
+
+      const text = (node.textContent || "").replace(/\u00A0/g, " ").trim();
+      if (!/\[essay/i.test(text)) return;
+      const m = text.match(SHORTCODE_REGEX);
+      if (!m) return;
+
+      const attrs = parseAttributesSmart(m[1] || "");
+      let id =
+        attrs.id ||
+        "essay_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+      const label = attrs.label || "Essay Question";
+
+      // Avoid duplicate IDs
+      if (document.getElementById(`essay-input-${id}`)) {
+        id = id + "_" + Math.random().toString(36).slice(2, 4);
+      }
+
+      const container = document.createElement("div");
+      container.innerHTML = createEssayHTML(id, label);
+      node.replaceWith(container);
+
+      const host = container.firstElementChild || container;
+      host.dataset.essayProcessed = "1";
+      replaced++;
+
+      setTimeout(() => attachHandlers(id, label), 0);
+    });
+
+    console.log(`[essay] scan complete — replaced ${replaced}`);
+    return replaced;
+  }
+
+  // ---- Init ----
+  window.forceEssayScan = () => scanForShortcodes(document);
+
+  const init = () => {
+    scanForShortcodes(document);
+    const mo = new MutationObserver((muts) => {
+      for (const m of muts) {
+        if (m.addedNodes && m.addedNodes.length) {
+          clearTimeout(init._t);
+          init._t = setTimeout(() => scanForShortcodes(document), 80);
+          break;
+        }
+      }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    console.log("[essay] scanner initialized");
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
